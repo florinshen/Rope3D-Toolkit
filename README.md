@@ -38,3 +38,9 @@ bash vis.sh
 ```
 Visualization examples
 ![](./example/0_3d.jpg)
+
+## Acknowledgement
+
+- [rope3d-dataset-tools](https://github.com/liyingying0113/rope3d-dataset-tools)
+- [mmdetection3d](https://github.com/open-mmlab/mmdetection3d)
+- [kitti_object_vis](https://github.com/kuixu/kitti_object_vis)
