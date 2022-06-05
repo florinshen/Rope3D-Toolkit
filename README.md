@@ -26,7 +26,7 @@ Acquire raw data of Rope3D from [here](https://thudair.baai.ac.cn/rope). Then un
 │   │   ├── denorm
 │   │   ├── extrinsics
 |   |   ├── label_2
-|   |   ├── train.txt
+|   |   ├── val.txt
 |   ├── validation-depth_2
 │   ├── validation-image_2
 ```
