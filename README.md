@@ -1,7 +1,7 @@
 # Rope3D-Toolkit
 Third-party toolkit for Rope3D dataset
 
-It is a third-party toolkit for [Road3D Dataset](https://thudair.baai.ac.cn/rope).
+It is a third-party toolkit for [Rope3D Dataset](https://thudair.baai.ac.cn/rope).
 
 In this toolkit, we will implement following functions, including:
 
