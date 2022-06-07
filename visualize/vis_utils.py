@@ -333,7 +333,7 @@ def calc_rotp(norm_vec):
     r11, r21, r31 = 1, - a / b, 0
     div = a ** 2 + b ** 2
     r13, r23, r33 = (- a * c) / div, (-b * c ) / div, 1
-    R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]])
+    R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]], dtype=np.float64)
     return R / np.linalg.norm(R, axis=0)
 
 def compute_box_3d(obj, P, gplane):
@@ -366,6 +366,58 @@ def compute_box_3d(obj, P, gplane):
     corners_3d[1, :] = corners_3d[1, :] + obj.t[1]
     corners_3d[2, :] = corners_3d[2, :] + obj.t[2]
     
+    # project the 3d bounding box into the image plane
+    # corner_3d: (3,8). P: (3, 4)
+    corners_2d = project_to_image(np.transpose(corners_3d), P)
+    # print 'corners_2d: ', corners_2d
+    return corners_2d, np.transpose(corners_3d)
+
+def compute_box_3d2(obj, P, gplane):
+    """ Takes an object and a projection matrix (P) and projects the 3d
+        bounding box into the image plane.
+        Returns:
+            corners_2d: (8,2) array in left image coord.
+            corners_3d: (8,3) array in in rect camera coord.
+    """
+    # compute rotational matrix around yaw axis
+    # for kitti dataset, round the y axis
+    R_y = roty(obj.ry)
+    # 3d bounding box dimensions
+    l = obj.l
+    w = obj.w
+    h = obj.h
+    # 3d bounding box corners, totally 8. origin (0, 0, 0)
+    x_corners = [l / 2, l / 2, -l / 2, -l / 2, l / 2, l / 2, -l / 2, -l / 2]
+    y_corners = [h / 2, h / 2, h / 2, h / 2, -h / 2, - h / 2, - h / 2, -h / 2]
+    z_corners = [w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2]
+
+    loc = obj.t 
+    # import pdb 
+    # if loc[0] < -28 and loc[1] < 0 and loc[2] > 180:
+    #     pdb.set_trace()
+    # rotate and translate 3d bounding box, (3,3) \dot (3,8) -> (3, 8)
+    corners_3d = np.dot(R_y, np.vstack([x_corners, y_corners, z_corners]))
+
+    corners_3d = corners_3d.T
+    # (1, 8, 3)
+    corners_3d = corners_3d[np.newaxis, :, :]
+    GP = gplane[np.newaxis, :]
+    a, b, c = - GP[:, 0], - GP[:, 1], - GP[:, 2]
+    y_rot = np.stack([a, b, c], axis=0)
+    x_rot = np.stack([np.ones_like(a), - a / b, np.zeros_like(a)], axis=0)
+    div = a ** 2 + b ** 2
+    z_rot = np.stack([(- a * c) / div, (-b * c) / div, np.ones_like(a)], axis=0)
+    R_p = np.stack([x_rot, y_rot, z_rot], axis=0)
+    R_p = R_p / np.linalg.norm(R_p, axis=1)
+    corners_3d = np.einsum('aij,jka->aik', corners_3d, R_p)
+    # (3, 8)
+    corners_3d = corners_3d[0].T
+    # corners_3d = np.dot(R_p, corners_3d)
+
+    # add shift for each axis with locations in camera coordination.
+    corners_3d[0, :] = corners_3d[0, :] + obj.t[0]
+    corners_3d[1, :] = corners_3d[1, :] + (obj.t[1] - (h / 2))
+    corners_3d[2, :] = corners_3d[2, :] + obj.t[2]
     # project the 3d bounding box into the image plane
     # corner_3d: (3,8). P: (3, 4)
     corners_2d = project_to_image(np.transpose(corners_3d), P)
