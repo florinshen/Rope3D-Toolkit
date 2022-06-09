@@ -85,13 +85,12 @@ def resize_cam(P2, scale):
     P2[1, 2] /= scale 
     return P2
 
-def show_image_with_boxes(img, objects, calib, gplane, name='0', vis_2d=False, scale=1):
-    """ Show image with 2D/3D bounding boxes """
-    img = cv2.flip(img, 1)
+def show_image_with_boxes(img, objects, calib, gplane, name='0', vis_2d=False, scale=1, flip=False):
+    """ Show image with 2D/3D bounding boxes """    
     if scale != 1:
         img = cv2.resize(img, (int(img.shape[1] * 1. / scale), (int(img.shape[0] * 1./ scale))))
-    # compare depth here.
-
+    if flip:
+        img = cv2.flip(img, 1)
     # _P = calib.P.copy()
     calib.P = resize_cam(calib.P, scale=scale)
 
@@ -103,7 +102,7 @@ def show_image_with_boxes(img, objects, calib, gplane, name='0', vis_2d=False, s
         (int(obj.xmin / scale), int(obj.ymin / scale)),
         (int(obj.xmax / scale), int(obj.ymax / scale)),
         (0, 255, 0), thickness=2)
-        box3d_pts_2d, _ = utils.compute_box_3d(obj, calib.P, gplane)
+        box3d_pts_2d, _ = utils.compute_box_3d(obj, calib.P, gplane, flip)
         # # here we compare the depth before and after resize3D
         # oproj_mat = np.concatenate([_P, np.array([[0, 0, 0, 1]], dtype=_P.dtype)], axis=0)
         # rproj_mat = np.concatenate([calib.P, np.array([[0, 0, 0, 1]], dtype=calib.P.dtype)], axis=0)
@@ -136,6 +135,7 @@ def get_args_parser():
     parser.add_argument('--scale', default=1., type=float)
     parser.add_argument('--vis_2d', dest='vis_2d', action='store_true')
     parser.add_argument('--show_name', dest='show_name', action='store_true')
+    parser.add_argument('--hflip', dest='hflip', action='store_true')
     return parser
 
 if __name__ == '__main__':
@@ -150,4 +150,5 @@ if __name__ == '__main__':
         name = data['name'] if args.show_name else data['idx']
         show_image_with_boxes(data['image'], data['labels'], 
                                 data['calib'], data['gplane'], 
-                                name=name, vis_2d=args.vis_2d, scale=args.scale)
+                                name=name, vis_2d=args.vis_2d, 
+                                flip=args.hflip, scale=args.scale)
