@@ -87,6 +87,7 @@ def resize_cam(P2, scale):
 
 def show_image_with_boxes(img, objects, calib, gplane, name='0', vis_2d=False, scale=1):
     """ Show image with 2D/3D bounding boxes """
+    img = cv2.flip(img, 1)
     if scale != 1:
         img = cv2.resize(img, (int(img.shape[1] * 1. / scale), (int(img.shape[0] * 1./ scale))))
     # compare depth here.
