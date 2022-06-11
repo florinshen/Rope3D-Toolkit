@@ -1,3 +1,5 @@
+import math 
+
 import numpy as np 
 import cv2 
 
@@ -311,8 +313,9 @@ def project_to_image(pts_3d, P, R_p=None):
 
     R_pad = np.eye(4)
     R_pad[:3, :3] = R_p.copy()
-    
-    # view_pad shape (4, 4) \dot (4, 8) -> (4, 8)
+
+    view_pad = np.dot(view_pad, R_pad) # convert on the cam-intrins matrix 
+
     pts_2d = np.dot(view_pad, np.transpose(pts_3d_extend))
     pts_2d = np.transpose(pts_2d)[:, :3]
     # normalize image coordinations to pixel coordination.
@@ -356,7 +359,6 @@ def compute_box_3d(obj, P, gplane, flip=False):
     """
     # compute rotational matrix around yaw axis
     # for kitti dataset, round the y axis
-    import math 
     width = 1920
     ry = obj.ry if not flip else math.pi - obj.ry
     R_y = roty(ry)
@@ -380,28 +382,14 @@ def compute_box_3d(obj, P, gplane, flip=False):
     gplane = -gplane
     R_p = calc_rotp(gplane[:3])
 
-    # add shift for each axis with locations in camera coordination.
-
     center = np.stack(obj.t, axis=0)[:, np.newaxis]
-    kcenter = np.dot(np.linalg.inv(R_p), center) # 3dcenter in kitti coordination.
+    kcenter = np.dot(np.linalg.inv(R_p), center) # 3d bottom-center in kitti coordination.
     corners_3d += kcenter
     if flip:
         corners_3d[0, :] = - corners_3d[0, :]
-    corners_3d = np.dot(R_p, corners_3d)
-
-    # if flip:
-    #     corners_3d[0, :] = corners_3d[0, :] + (- obj.t[0])
-    # else:
-    #     corners_3d[0, :] = corners_3d[0, :] + obj.t[0]
-    # # corners_3d[0, :] = corners_3d[0, :] + (obj.t[0])
-    # corners_3d[1, :] = corners_3d[1, :] + obj.t[1]
-    # corners_3d[2, :] = corners_3d[2, :] + obj.t[2]
-    
-    if flip:
         P[0, 2] = width - P[0, 2]
 
     corners_2d = project_to_image(np.transpose(corners_3d), P, R_p)
-    # print 'corners_2d: ', corners_2d
     return corners_2d, np.transpose(corners_3d)
 
 def compute_box_3d2(obj, P, gplane):
