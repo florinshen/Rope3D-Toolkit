@@ -92,8 +92,8 @@ def show_image_with_boxes(img, objects, calib, gplane, name='0', vis_2d=False, s
     if flip:
         img = cv2.flip(img, 1)
     # _P = calib.P.copy()
-    calib.P = resize_cam(calib.P, scale=scale)
-
+    # calib.P = resize_cam(calib.P, scale=scale)
+    img_width = img.shape[1]
     img1 = np.copy(img)  # for 2d bbox
     img2 = np.copy(img)  # for 3d bbox
     for idx, obj in enumerate(objects):
@@ -102,7 +102,7 @@ def show_image_with_boxes(img, objects, calib, gplane, name='0', vis_2d=False, s
         (int(obj.xmin / scale), int(obj.ymin / scale)),
         (int(obj.xmax / scale), int(obj.ymax / scale)),
         (0, 255, 0), thickness=2)
-        box3d_pts_2d, _ = utils.compute_box_3d(obj, calib.P, gplane, flip)
+        box3d_pts_2d, _ = utils.compute_box_3d(obj, calib.P, gplane, flip=flip, scale=scale, width=img_width)
         # # here we compare the depth before and after resize3D
         # oproj_mat = np.concatenate([_P, np.array([[0, 0, 0, 1]], dtype=_P.dtype)], axis=0)
         # rproj_mat = np.concatenate([calib.P, np.array([[0, 0, 0, 1]], dtype=calib.P.dtype)], axis=0)
@@ -152,3 +152,5 @@ if __name__ == '__main__':
                                 data['calib'], data['gplane'], 
                                 name=name, vis_2d=args.vis_2d, 
                                 flip=args.hflip, scale=args.scale)
+# 149111_yz4w154d20211125air_420_1637216467_1637218962_147_obstacle
+# 149111_yz4w154d20211125air_420_1637216467_1637218962_147_obstacle.jpg

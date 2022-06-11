@@ -290,7 +290,7 @@ def roty(t):
     s = np.sin(t)
     return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
 
-def project_to_image(pts_3d, P, R_p=None):
+def project_to_image(pts_3d, P, R_p=None, scale=1, flip=False, width=1920):
     """ Project 3d points to image plane.
 
     Usage: pts_2d = projectToImage(pts_3d, P)
@@ -310,12 +310,18 @@ def project_to_image(pts_3d, P, R_p=None):
     # print(('pts_3d_extend shape: ', pts_3d_extend.shape))
     view_pad = np.eye(4)
     view_pad[:3, :4] = P.copy()
-
+    if flip:
+        view_pad[0, 2] = width - view_pad[0, 2]
     R_pad = np.eye(4)
     R_pad[:3, :3] = R_p.copy()
 
     view_pad = np.dot(view_pad, R_pad) # convert on the cam-intrins matrix 
 
+    scale_pad = np.eye(4)
+    scale_pad[:, 0] /= scale 
+    scale_pad[:, 1] /= scale
+
+    view_pad = np.dot(scale_pad, view_pad)
     pts_2d = np.dot(view_pad, np.transpose(pts_3d_extend))
     pts_2d = np.transpose(pts_2d)[:, :3]
     # normalize image coordinations to pixel coordination.
@@ -338,19 +344,30 @@ def calc_rotz(norm_vec):
                     / np.linalg.norm(norm_vec)
     return (np.pi / 2.) - np.arccos(cos_value)
 
+# def calc_rotp(norm_vec, hflip=False):
+#     # import pdb 
+#     # pdb.set_trace()
+#     a, b, c = float(norm_vec[0]), float(norm_vec[1]), float(norm_vec[2])
+#     r12, r22, r32 = a, b, c
+#     r11, r21, r31 = 1, - a / b, 0
+#     div = a ** 2 + b ** 2
+#     r13, r23, r33 = (- a * c) / div, (-b * c ) / div, 1
+#     if hflip:
+#         r12, r21, r13 = -r12, -r21, -r13
+#     R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]], dtype=np.float64)
+#     return R / np.linalg.norm(R, axis=0)
+
 def calc_rotp(norm_vec, hflip=False):
     a, b, c = float(norm_vec[0]), float(norm_vec[1]), float(norm_vec[2])
-    r12, r22, r32 = a, b, c
-    r11, r21, r31 = 1, - a / b, 0
-    div = a ** 2 + b ** 2
-    r13, r23, r33 = (- a * c) / div, (-b * c ) / div, 1
-    if hflip:
-        r12, r21, r13 = -r12, -r21, -r13
+    div = b ** 2 + c ** 2
+    r11, r21, r31 = 1, (a * b) / div, (a * c) / div, 
+    r12, r22, r32 = -a, b, c
+    r13, r23, r33 = 0, -c / b, 1
     R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]], dtype=np.float64)
     return R / np.linalg.norm(R, axis=0)
 
 
-def compute_box_3d(obj, P, gplane, flip=False):
+def compute_box_3d(obj, P, gplane, flip=False, scale=1, width=1920):
     """ Takes an object and a projection matrix (P) and projects the 3d
         bounding box into the image plane.
         Returns:
@@ -359,7 +376,6 @@ def compute_box_3d(obj, P, gplane, flip=False):
     """
     # compute rotational matrix around yaw axis
     # for kitti dataset, round the y axis
-    width = 1920
     ry = obj.ry if not flip else math.pi - obj.ry
     R_y = roty(ry)
     # R_y = roty(obj.ry)
@@ -379,17 +395,15 @@ def compute_box_3d(obj, P, gplane, flip=False):
     corners_3d = np.dot(R_y, corners_3d)
 
     # get rotate matrix from ground-plane
-    gplane = -gplane
-    R_p = calc_rotp(gplane[:3])
+    R_p = calc_rotp(- gplane[:3], hflip=flip)
 
     center = np.stack(obj.t, axis=0)[:, np.newaxis]
     kcenter = np.dot(np.linalg.inv(R_p), center) # 3d bottom-center in kitti coordination.
-    corners_3d += kcenter
     if flip:
-        corners_3d[0, :] = - corners_3d[0, :]
-        P[0, 2] = width - P[0, 2]
+        kcenter[0, :] = -kcenter[0, :]
+    corners_3d += kcenter
 
-    corners_2d = project_to_image(np.transpose(corners_3d), P, R_p)
+    corners_2d = project_to_image(np.transpose(corners_3d), P, R_p, scale=scale, flip=flip, width=width)
     return corners_2d, np.transpose(corners_3d)
 
 def compute_box_3d2(obj, P, gplane):
