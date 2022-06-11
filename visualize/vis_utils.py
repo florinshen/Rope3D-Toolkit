@@ -288,7 +288,7 @@ def roty(t):
     s = np.sin(t)
     return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
 
-def project_to_image(pts_3d, P):
+def project_to_image(pts_3d, P, R_p=None):
     """ Project 3d points to image plane.
 
     Usage: pts_2d = projectToImage(pts_3d, P)
@@ -306,7 +306,15 @@ def project_to_image(pts_3d, P):
     n = pts_3d.shape[0]
     pts_3d_extend = np.hstack((pts_3d, np.ones((n, 1)))) # (8, 4)
     # print(('pts_3d_extend shape: ', pts_3d_extend.shape))
-    pts_2d = np.dot(pts_3d_extend, np.transpose(P))  # (8, 4) /dot (4, 3) -> (8, 3)
+    view_pad = np.eye(4)
+    view_pad[:3, :4] = P.copy()
+
+    R_pad = np.eye(4)
+    R_pad[:3, :3] = R_p.copy()
+    
+    # view_pad shape (4, 4) \dot (4, 8) -> (4, 8)
+    pts_2d = np.dot(view_pad, np.transpose(pts_3d_extend))
+    pts_2d = np.transpose(pts_2d)[:, :3]
     # normalize image coordinations to pixel coordination.
     pts_2d[:, 0] /= pts_2d[:, 2] 
     pts_2d[:, 1] /= pts_2d[:, 2]
@@ -338,15 +346,6 @@ def calc_rotp(norm_vec, hflip=False):
     R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]], dtype=np.float64)
     return R / np.linalg.norm(R, axis=0)
 
-# def calc_rotp(norm_vec):
-#     a, b, c = float(norm_vec[0]), float(norm_vec[1]), float(norm_vec[2])
-#     r12, r22, r32 = - a, b, c
-#     r11, r21, r31 = 1, a / b, 0
-#     div = a ** 2 + b ** 2
-#     r13, r23, r33 = (a * c) / div, (- b * c ) / div, 1
-#     R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]], dtype=np.float64)
-#     return R / np.linalg.norm(R, axis=0)
-
 
 def compute_box_3d(obj, P, gplane, flip=False):
     """ Takes an object and a projection matrix (P) and projects the 3d
@@ -374,25 +373,34 @@ def compute_box_3d(obj, P, gplane, flip=False):
     z_corners = [w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2]
 
     # rotate and translate 3d bounding box, (3,3) \dot (3,8) -> (3, 8)
-    corners_3d = np.dot(R_y, np.vstack([x_corners, y_corners, z_corners]))
+    corners_3d = np.vstack([x_corners, y_corners, z_corners])
+    corners_3d = np.dot(R_y, corners_3d)
 
+    # get rotate matrix from ground-plane
     gplane = -gplane
-    R_p = calc_rotp(gplane[:3], hflip=flip)
-    corners_3d = np.dot(R_p, corners_3d)
+    R_p = calc_rotp(gplane[:3])
 
     # add shift for each axis with locations in camera coordination.
+
+    center = np.stack(obj.t, axis=0)[:, np.newaxis]
+    kcenter = np.dot(np.linalg.inv(R_p), center) # 3dcenter in kitti coordination.
+    corners_3d += kcenter
     if flip:
-        corners_3d[0, :] = corners_3d[0, :] + (- obj.t[0])
-    else:
-        corners_3d[0, :] = corners_3d[0, :] + obj.t[0]
-    # corners_3d[0, :] = corners_3d[0, :] + (obj.t[0])
-    corners_3d[1, :] = corners_3d[1, :] + obj.t[1]
-    corners_3d[2, :] = corners_3d[2, :] + obj.t[2]
+        corners_3d[0, :] = - corners_3d[0, :]
+    corners_3d = np.dot(R_p, corners_3d)
+
+    # if flip:
+    #     corners_3d[0, :] = corners_3d[0, :] + (- obj.t[0])
+    # else:
+    #     corners_3d[0, :] = corners_3d[0, :] + obj.t[0]
+    # # corners_3d[0, :] = corners_3d[0, :] + (obj.t[0])
+    # corners_3d[1, :] = corners_3d[1, :] + obj.t[1]
+    # corners_3d[2, :] = corners_3d[2, :] + obj.t[2]
     
     if flip:
         P[0, 2] = width - P[0, 2]
 
-    corners_2d = project_to_image(np.transpose(corners_3d), P)
+    corners_2d = project_to_image(np.transpose(corners_3d), P, R_p)
     # print 'corners_2d: ', corners_2d
     return corners_2d, np.transpose(corners_3d)
 
