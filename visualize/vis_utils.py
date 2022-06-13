@@ -344,28 +344,18 @@ def calc_rotz(norm_vec):
                     / np.linalg.norm(norm_vec)
     return (np.pi / 2.) - np.arccos(cos_value)
 
-# def calc_rotp(norm_vec, hflip=False):
-#     # import pdb 
-#     # pdb.set_trace()
-#     a, b, c = float(norm_vec[0]), float(norm_vec[1]), float(norm_vec[2])
-#     r12, r22, r32 = a, b, c
-#     r11, r21, r31 = 1, - a / b, 0
-#     div = a ** 2 + b ** 2
-#     r13, r23, r33 = (- a * c) / div, (-b * c ) / div, 1
-#     if hflip:
-#         r12, r21, r13 = -r12, -r21, -r13
-#     R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]], dtype=np.float64)
-#     return R / np.linalg.norm(R, axis=0)
-
 def calc_rotp(norm_vec, hflip=False):
+    # import pdb 
+    # pdb.set_trace()
     a, b, c = float(norm_vec[0]), float(norm_vec[1]), float(norm_vec[2])
-    div = b ** 2 + c ** 2
-    r11, r21, r31 = 1, (a * b) / div, (a * c) / div, 
-    r12, r22, r32 = -a, b, c
-    r13, r23, r33 = 0, -c / b, 1
+    r12, r22, r32 = a, b, c
+    r11, r21, r31 = 1, - a / b, 0
+    div = a ** 2 + b ** 2
+    r13, r23, r33 = (- a * c) / div, (-b * c ) / div, 1
+    if hflip:
+        r12, r21, r13 = -r12, -r21, -r13
     R = np.array([[r11, r12, r13], [r21, r22, r23], [r31, r32, r33]], dtype=np.float64)
     return R / np.linalg.norm(R, axis=0)
-
 
 def compute_box_3d(obj, P, gplane, flip=False, scale=1, width=1920):
     """ Takes an object and a projection matrix (P) and projects the 3d
